@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>深度克隆</title>
+	<script>
+		// 
+		// 克隆对象的本质是复制对象所有属性的值，由于属性也会是对象，于是在是否继续递归下去的选择上，分出浅克隆和深克隆。
+		// 浅克隆：　利用赋值操作符=来实现对源对象属性的复制，＝赋值能实现基本类型值的复制，但不能复制拥有这些值的属性的特性，而对于属性对象将保持引用，　es6定义了Object.assign来实现浅复制
+		// 
+		// 深复制：　由于可能存在源对象所拥有的属性对象的引用嵌套链上引用了源对象自身，导致死循环，对此问题解决或是检测引用并终止循环（不复制深层元素），或是直接报错或是其他方法，不同框架提出了自己的解决办法，因此并未标准化。
+		// 
+		// 最简单方法：采用JSON对象序列化法, 简单值，对象，数组，因此对于自定义对象以及Date和RegExp对象特别处理，另外由于函数对象无法修改，只能重新赋值，也没复制意义，所以保持引用（虽然可以手动序列化函数实现复制，但如果此属性为内置构造函数如Array,　要想正常序列化就很麻烦）
+		// 所以函数的复制一律保持引用
+		// 
+		// 自己实现，用递归
+		// 
+		function clone(objectToBeCloned) {
+		  // Basis.
+		  // 
+			return	(function deep(beCloned){
+					  	if (!(beCloned instanceof Object) || beCloned == objectToBeCloned) {
+					    return beCloned;
+					  }
+
+					  var objectClone;
+					  
+					  // Filter out special objects.
+					  var Constructor = beCloned.constructor;
+					  switch (Constructor) {
+					    // Implement other special objects here.
+					    case RegExp:
+					      objectClone = new Constructor(beCloned);
+					      break;
+					    case Date:
+					      objectClone = new Constructor(beCloned.getTime());
+					      break;
+					    default:
+					      objectClone = new Constructor();
+					  }
+					  
+					  // Clone each property.
+					  for (var prop in beCloned) {
+
+					    objectClone[prop] = deep(beCloned[prop]);
+					  }
+					  
+					  return objectClone;
+					}(objectToBeCloned));
+		}
+
+		
+		
+		
+		function clone(toBeCloned){
+			return  ( function deep(cloned){
+						if ( ! (cloned instanceof Object) || toBeCloned === cloned) {
+							return cloned;
+						}
+						var newObject = null;
+						var constructor = cloned.constructor;
+						switch(constructor){
+							case RegExp:
+								newObject = new constructor(cloned);
+								break;
+							case Date:
+								newObject = new constructor(cloned.getTime());
+								break;
+							default:
+								newObject = new constructor();
+						}
+						for(prop in cloned){
+							newObject[prop] = deep(cloned[prop]);
+						}
+						return newObject;
+
+			}(toBeCloned) )
+		}
+		
+
+
+		var arr = [1,2,3,4,{a:function (){alert('a')},b:{c:function(){alert('c')}}},6];
+		arr.push(arr);
+		var arr2 = clone(arr);
+		// var arr2 = clone([1,2,3]);
+		// var arr2 = clone({a:1,b:2,c:3});
+		var reg = new RegExp(".*hello",'g');
+		var date = new Date("May 25,2004");
+		var date2 = new Date("6/13/2004");
+		var date3 = date2;
+		console.log(arr2);
+		console.log(date);
+		console.log(date2);
+		console.log(date3);
+		console.log(Object.prototype.toString.call(reg));
+		// console.log(arr)
+		// 
+		// 使用JSON序列化与解析来克隆对象
+		// 1.　首先属性为函数的特别序列化，默认函数值会被忽略。
+		// 2. 之后解析时，还要对函数特别的复原。
+		// 
+		function Human (){
+			this.eat = function (){
+				alert('eating something!');
+			}
+			this.sleep = function (){
+				alert('sleeping');
+			}
+		}
+
+
+		// 
+		function Person　(name, age){
+			this.say = function (){
+				alert("Introduce yourself");
+			}
+			this.greeting = function (){
+				alert('how are your doing?');
+			}
+			this.work = function (){
+				alert('working');
+			}
+			this.name = name;
+			this.age = age;
+		}
+
+		Person.prototype =  new Human();
+
+		Person.prototype.speak = function (){
+			alert("say something!");
+		}
+		Person.prototype.walk = function (){
+			alert("walking!");
+		}
+
+		
+		var m1 = new Person('张三', '23');
+
+		
+		function cloneJSON (cloned){
+			switch (Object.prototype.toString.call(cloned) ) {
+				case '[object RegExp]':
+					return new RegExp(cloned);
+					// 如果是函数保持引用
+				case '[object Function]':
+					return cloned;
+				case '[object Date]':
+					return new Date(cloned);
+			}
+			 
+			 var objNew = JSON.parse(JSON.stringify(cloned, function (key,value){
+								switch(Object.prototype.toString.call(cloned[key])){
+									case '[object RegExp]':
+										return value.source + ',' + value.flags;
+									default:
+										return value;
+								}
+							}), function (key,value){
+								switch( Object.prototype.toString.call(cloned[key]) ){
+									case '[object Function]':
+									// 如果是函数属性保持引用
+										return cloned[key].valueOf();
+									case '[object RegExp]':
+										var arr = value.split(',');
+										return new RegExp(arr[0],arr[1]);
+									case '[object Date]':
+										return new Date(value);
+									default:
+										return value;
+								}
+							});
+			 	objNew.__proto__ = Object.getPrototypeOf(cloned);
+			 	return objNew;
+			}
+		var m2 = cloneJSON(m1);
+		var m4 = cloneJSON(new RegExp(/hello/g));
+		var m5 = cloneJSON(Person);
+		var m6 = cloneJSON(new Date());
+		var m7 = cloneJSON(Array);
+		m2.date = new Date();
+		m2.reg = new RegExp('test','g');
+		var m3 = cloneJSON(m2);
+		var m8 = cloneJSON(123);
+		//3. 最后，JSON解析由于总是通过Object构造函数创建，所以实例表现为Object的实例，因此还要还原他应有的引用类型，通过设置实例的原型, 就能体现此引用类型。
+		//　为什么改原型就能改引用类型？
+		// 		因为实例引用类型是通过原型的构造函数属性来确定的（instanceof也这么确定），即使你覆盖了实例中构造函数的值，也只是看起来改了而已，除非你把实例引用的原型对象的构造函数属性改了。
+		// 		
+		// m2.__proto__ = Object.getPrototypeOf(m1);
+		// Person.prototype.constructor = Array; 
+		// m2.__proto__ = Array.prototype;
+		// m2.constructor = Person;
+		console.log(m1)
+		console.log(m2);
+		console.log(m3);
+		console.log(m4);
+		console.log(m5);
+		console.log(m6);
+		console.log(m7);
+		console.log(typeof m8);
+		console.log('m1: ' + m1.constructor);
+		console.log('m2: ' + m2.constructor);
+		console.log('m3: ' + m3.constructor);
+		console.log(m1 instanceof Person);
+		console.log(m2 instanceof Person);
+
+	</script>
+</head>
+<body>
+	
+</body>
+</html>
